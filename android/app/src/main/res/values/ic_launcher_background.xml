@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#004CFF</color>
+    <!-- Fundo da splash nativa (Android 12+) -->
+    <color name="splash_background">#F0F0F0</color>
+</resources>

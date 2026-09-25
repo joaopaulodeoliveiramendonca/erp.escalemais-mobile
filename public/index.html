@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f0f0f0">
+  <title>Escale Mais</title>
+  <!--
+    Casca local exigida pelo Capacitor. O app carrega o ERP direto de
+    `server.url` (capacitor.config.ts), então esta página normalmente nunca
+    aparece. Se aparecer (ex.: config sem server.url), segue para o ERP.
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; background: #f0f0f0; }
+  </style>
+</head>
+<body>
+  <script>
+    location.replace('https://erp.escalemais.com/login');
+  </script>
+</body>
+</html>

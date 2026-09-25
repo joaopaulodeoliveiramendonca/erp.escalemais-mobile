@@ -1,0 +1,18 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["TEAMID.com.escalemais.erp"],
+        "components": [
+          { "/": "/proprietario/*", "comment": "Telas do proprietário (vendas, orçamentos, produtos…)" },
+          { "/": "/colaborador/*", "comment": "Telas do colaborador" },
+          { "/": "/admin/*", "comment": "Painel administrativo" },
+          { "/": "/login", "comment": "Login" }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["TEAMID.com.escalemais.erp"]
+  }
+}

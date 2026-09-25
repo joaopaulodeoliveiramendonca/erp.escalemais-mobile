@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Universal Links: https://erp.escalemais.com/... abre direto no app.
+	  Requer a capability "Associated Domains" no App ID (Xcode faz isso com
+	  assinatura automática) e o arquivo
+	  https://erp.escalemais.com/.well-known/apple-app-site-association
+	  (modelo em well-known/ — ver README).
+	-->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:erp.escalemais.com</string>
+		<!-- Preenchimento de senha pelo Chaveiro do iCloud (o app nunca guarda senha). -->
+		<string>webcredentials:erp.escalemais.com</string>
+	</array>
+</dict>
+</plist>

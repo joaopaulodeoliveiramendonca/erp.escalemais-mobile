@@ -1,0 +1,21 @@
+# Dependências e build da bridge
+node_modules/
+www/
+
+# Assinatura e segredos — NUNCA versionar
+android/keystore.properties
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+android/app/google-services.json
+ios/App/App/GoogleService-Info.plist
+
+# Sistema / IDEs
+.DS_Store
+*.log
+.idea/
+.vscode/
+
+# Configuração local do Claude Code
+.claude/

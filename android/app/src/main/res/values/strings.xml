@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Escale Mais</string>
+    <string name="title_activity_main">Escale Mais</string>
+    <string name="package_name">com.escalemais.erp</string>
+    <!-- Esquema de deep link próprio: escalemais://... -->
+    <string name="custom_url_scheme">escalemais</string>
+    <!-- Host dos App Links (manter igual a src/config/urls.ts). -->
+    <string name="erp_host">erp.escalemais.com</string>
+</resources>

@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.escalemais.erp",
+      "sha256_cert_fingerprints": [
+        "SUBSTITUIR:PELO:SHA256:DA:CHAVE:DE:ASSINATURA:DO:GOOGLE:PLAY:(Play Console > Integridade do app > Assinatura de apps)",
+        "SUBSTITUIR:PELO:SHA256:DA:CHAVE:DE:UPLOAD:(opcional, para testar builds locais)"
+      ]
+    }
+  }
+]

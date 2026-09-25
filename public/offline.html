@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f0f0f0" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1c1c21" media="(prefers-color-scheme: dark)">
+  <title>Sem conexão · Escale Mais</title>
+  <!--
+    Tela exibida pela camada nativa (EscaleNativePlugin) quando o ERP não pode
+    ser carregado por falha de REDE. Erros HTTP do Laravel (404, 419, 500…)
+    continuam sendo mostrados pelo próprio ERP.
+
+    A camada nativa troca o marcador abaixo por um JSON:
+      { "failedUrl": "...", "offlineUrl": "..." }
+    Autocontida: sem fontes, imagens ou scripts externos.
+  -->
+  <script>window.__ESCALE_ERROR__ = __ESCALE_ERROR_JSON__;</script>
+  <style>
+    :root {
+      --bg: #f0f0f0;
+      --card: #ffffff;
+      --text: #00002d;
+      --muted: #5b5b72;
+      --primary: #004cff;
+      --primary-pressed: #0039cc;
+      --secondary-border: #d5d5de;
+      color-scheme: light dark;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1c21;
+        --card: #26262d;
+        --text: #f4f4f7;
+        --muted: #a1a1b3;
+        --secondary-border: #3a3a44;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Roboto, "Segoe UI", sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: calc(env(safe-area-inset-top) + 24px) calc(env(safe-area-inset-right) + 24px)
+               calc(env(safe-area-inset-bottom) + 24px) calc(env(safe-area-inset-left) + 24px);
+      -webkit-user-select: none;
+      user-select: none;
+      overscroll-behavior: none;
+    }
+    main { width: 100%; max-width: 360px; text-align: center; }
+    .logo {
+      width: 72px; height: 72px; margin: 0 auto 28px;
+      border-radius: 20px; background: var(--primary);
+      display: grid; place-items: center;
+    }
+    .logo svg { width: 38px; height: 38px; }
+    h1 { font-size: 22px; line-height: 1.25; margin: 0 0 12px; font-weight: 700; }
+    p { font-size: 16px; line-height: 1.5; margin: 0; color: var(--muted); }
+    p + p { margin-top: 4px; }
+    .actions { margin-top: 32px; display: grid; gap: 12px; }
+    button {
+      appearance: none; border: 0; width: 100%;
+      min-height: 52px; border-radius: 999px;
+      font: inherit; font-size: 16px; font-weight: 600;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .primary { background: var(--primary); color: #fff; }
+    .primary:active { background: var(--primary-pressed); }
+    .primary[aria-busy="true"] { opacity: .7; }
+    .secondary { background: transparent; color: var(--text); border: 1px solid var(--secondary-border); }
+    [hidden] { display: none !important; }
+    .status { margin-top: 16px; min-height: 20px; font-size: 14px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="#fcf8ec">
+        <rect x="2" y="12" width="5.5" height="10" rx="1.4"/>
+        <rect x="9.25" y="7" width="5.5" height="15" rx="1.4"/>
+        <rect x="16.5" y="2" width="5.5" height="20" rx="1.4"/>
+      </svg>
+    </div>
+
+    <h1>Sem conexão</h1>
+    <p>Não foi possível conectar ao Escale Mais.</p>
+    <p>Verifique sua conexão com a internet.</p>
+
+    <div class="actions">
+      <button type="button" class="primary" id="retry">Tentar novamente</button>
+      <button type="button" class="secondary" id="offline" hidden>Continuar offline</button>
+    </div>
+    <div class="status" id="status" role="status" aria-live="polite"></div>
+  </main>
+
+  <script>
+    (function () {
+      var info = window.__ESCALE_ERROR__ || {};
+      var fallback = 'https://erp.escalemais.com/login';
+      var target = /^https:\/\/erp\.escalemais\.com(\/|$)/.test(info.failedUrl || '') ? info.failedUrl : fallback;
+      var retry = document.getElementById('retry');
+      var offline = document.getElementById('offline');
+      var status = document.getElementById('status');
+
+      function hideSplash() {
+        try { window.Capacitor.Plugins.SplashScreen.hide(); } catch (e) { /* fora do app */ }
+      }
+
+      function go() {
+        retry.setAttribute('aria-busy', 'true');
+        retry.textContent = 'Conectando…';
+        status.textContent = '';
+        location.replace(target);
+      }
+
+      retry.addEventListener('click', go);
+
+      // "Continuar offline": só aparece quando o app tiver uma rota offline configurada.
+      if (info.offlineUrl) {
+        offline.hidden = false;
+        offline.addEventListener('click', function () { location.replace(info.offlineUrl); });
+      }
+
+      // Volta sozinho quando a conexão retornar.
+      window.addEventListener('online', function () {
+        status.textContent = 'Conexão restabelecida.';
+        setTimeout(go, 600);
+      });
+
+      hideSplash();
+      window.addEventListener('load', hideSplash);
+    })();
+  </script>
+</body>
+</html>
