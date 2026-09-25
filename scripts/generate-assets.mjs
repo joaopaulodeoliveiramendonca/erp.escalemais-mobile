@@ -17,6 +17,11 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 const BRAND = '#004cff';
 // Splash: cinza padrão do ERP com as barras azuis (o ícone do app segue azul).
 const SPLASH_BG = '#f0f0f0';
+// Tamanho das barras na splash: ~20% da largura do celular (~80pt/dp).
+// iOS: a imagem quadrada de 2732px é esticada para preencher a altura da tela,
+// por isso a proporção é bem menor que a do Android.
+const SPLASH_RATIO_IOS = 0.09;
+const SPLASH_RATIO = 0.2;
 const ICON = `${root}resources/icon.png`;
 const MARK = `${root}resources/logo-mark.png`;
 const MARK_SPLASH = `${root}resources/logo-mark-blue.png`;
@@ -46,7 +51,7 @@ await save(`${iosAssets}/AppIcon.appiconset/AppIcon-512@2x.png`, sharp(ICON).res
 
 // LaunchScreen.storyboard usa a imagem "Splash" com aspect fill.
 for (const name of ['splash-2732x2732.png', 'splash-2732x2732-1.png', 'splash-2732x2732-2.png']) {
-  await save(`${iosAssets}/Splash.imageset/${name}`, (await markOn(2732, 2732, 0.2, SPLASH_BG, MARK_SPLASH)).flatten({ background: SPLASH_BG }).removeAlpha());
+  await save(`${iosAssets}/Splash.imageset/${name}`, (await markOn(2732, 2732, SPLASH_RATIO_IOS, SPLASH_BG, MARK_SPLASH)).flatten({ background: SPLASH_BG }).removeAlpha());
 }
 
 // --------------------------------------------------------------- Android
@@ -68,13 +73,13 @@ for (const [density, scale] of Object.entries(densities)) {
 
   // Splash legado (Android < 12). No 12+ o sistema usa cor + ícone (styles.xml).
   const [pw, ph] = splashSizes[density];
-  await save(`${androidRes}/drawable-port-${density}/splash.png`, await markOn(pw, ph, 0.3, SPLASH_BG, MARK_SPLASH));
-  await save(`${androidRes}/drawable-land-${density}/splash.png`, await markOn(ph, pw, 0.3, SPLASH_BG, MARK_SPLASH));
+  await save(`${androidRes}/drawable-port-${density}/splash.png`, await markOn(pw, ph, SPLASH_RATIO, SPLASH_BG, MARK_SPLASH));
+  await save(`${androidRes}/drawable-land-${density}/splash.png`, await markOn(ph, pw, SPLASH_RATIO, SPLASH_BG, MARK_SPLASH));
 
   // Splash do Android 12+: ícone sem fundo, 288dp com o conteúdo dentro do círculo de 192dp.
   const splashIcon = Math.round(288 * scale);
-  await save(`${androidRes}/drawable-${density}/splash_icon.png`, await markOn(splashIcon, splashIcon, 0.42, { r: 0, g: 0, b: 0, alpha: 0 }, MARK_SPLASH));
+  await save(`${androidRes}/drawable-${density}/splash_icon.png`, await markOn(splashIcon, splashIcon, 0.28, { r: 0, g: 0, b: 0, alpha: 0 }, MARK_SPLASH));
 }
-await save(`${androidRes}/drawable/splash.png`, await markOn(480, 320, 0.3, SPLASH_BG, MARK_SPLASH));
+await save(`${androidRes}/drawable/splash.png`, await markOn(480, 320, SPLASH_RATIO, SPLASH_BG, MARK_SPLASH));
 
 console.log('\nPronto. Rode `npx cap sync` se ainda não rodou.');
