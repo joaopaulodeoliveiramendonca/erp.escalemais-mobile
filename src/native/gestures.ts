@@ -6,15 +6,18 @@ import { injectStyle, onRootReady } from '../utils/dom';
  *
  * - overscroll/bounce e "puxar para atualizar": desligados. A WebView não tem
  *   pull-to-refresh nativo e o ERP tem formulários longos em que um refresh
- *   acidental perderia dados (item 15).
+ *   acidental perderia dados (item 15). Só no <html>: ele é quem passa o valor
+ *   para a janela. No <body> travava a página inteira no Android: o ERP põe
+ *   `overflow-x-hidden` no body, o que faz dele um contêiner de rolagem, e com
+ *   `none` o gesto não passava dele para a janela (quem de fato rola).
  * - duplo toque não dá zoom (`touch-action: manipulation`), pinça continua.
  * - pressionar e segurar em links/imagens não abre o menu do navegador.
  * - sem destaque cinza ao tocar; seleção de texto desligada só em botões,
  *   links e ícones — textos e campos continuam selecionáveis.
  */
 const CSS = `
+html { overscroll-behavior: none; }
 html, body {
-  overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
