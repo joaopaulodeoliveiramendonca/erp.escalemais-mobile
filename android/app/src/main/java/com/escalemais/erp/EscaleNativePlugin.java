@@ -4,9 +4,12 @@ import android.app.DownloadManager;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.pdf.PdfRenderer;
 import android.net.Uri;
 import android.os.Environment;
+import android.os.ParcelFileDescriptor;
 import android.print.PrintAttributes;
 import android.print.PrintManager;
 import android.view.View;
@@ -18,6 +21,7 @@ import android.webkit.WebViewClient;
 import android.widget.Toast;
 import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
+import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Logger;
 import com.getcapacitor.Plugin;
@@ -26,6 +30,8 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.WebViewListener;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -43,13 +49,21 @@ import org.json.JSONObject;
  *  3. Tela "Sem conexão" em falha de rede (via EscaleWebViewClient).
  *  4. Downloads: entrega ao JS (que baixa com a sessão e oferece Visualizar/Compartilhar/Salvar).
  *  5. Impressão nativa (window.print não funciona em WebView).
- *  6. Cor de fundo nativa e persistência dos cookies da sessão.
+ *  6. PDF → PNG, para "Compartilhar como imagem" (src/native/files.ts).
+ *  7. Cor de fundo nativa e persistência dos cookies da sessão.
  */
 @CapacitorPlugin(name = "EscaleNative")
 public class EscaleNativePlugin extends Plugin {
 
     private static final String TAG = "EscaleNative";
     private static final String ERROR_PLACEHOLDER = "__ESCALE_ERROR_JSON__";
+
+    /** Largura das imagens geradas de PDF: o cupom de 80 mm (~226 pt) sai legível no WhatsApp. */
+    private static final float IMAGE_TARGET_WIDTH = 1080f;
+    /** A4 e maiores: 2 px por ponto (~144 dpi). */
+    private static final float IMAGE_MIN_SCALE = 2f;
+    /** Teto por página (~48 MB em ARGB_8888): cupom muito longo reduz a escala em vez de estourar a memória. */
+    private static final float IMAGE_MAX_PIXELS = 12_000_000f;
 
     private UrlPolicy policy;
     private String erpOrigin;
@@ -225,6 +239,83 @@ public class EscaleNativePlugin extends Plugin {
             data.put("error", "Falha ao iniciar o download.");
             notifyListeners("downloadFailed", data);
             showToast("Não foi possível baixar o arquivo.");
+        }
+    }
+
+    // -------------------------------------------------------------- PDF → PNG
+
+    @PluginMethod
+    public void pdfToImages(PluginCall call) {
+        String path = call.getString("path");
+        int maxPages = Math.max(1, call.getInt("maxPages", 10));
+        if (path == null || path.isEmpty()) {
+            call.reject("Informe o caminho do PDF.");
+            return;
+        }
+
+        File pdf = new File(path);
+        try {
+            // Só o que o app baixou (cache): a página não lê arquivos arbitrários do aparelho por aqui.
+            String cacheRoot = getContext().getCacheDir().getCanonicalPath() + File.separator;
+            if (!pdf.getCanonicalPath().startsWith(cacheRoot)) {
+                call.reject("O arquivo precisa estar no cache do app.");
+                return;
+            }
+        } catch (IOException e) {
+            call.reject("Caminho inválido.", e);
+            return;
+        }
+
+        String base = pdf.getName().replaceFirst("(?i)\\.pdf$", "");
+        try (
+            ParcelFileDescriptor fd = ParcelFileDescriptor.open(pdf, ParcelFileDescriptor.MODE_READ_ONLY);
+            PdfRenderer renderer = new PdfRenderer(fd)
+        ) {
+            int pageCount = renderer.getPageCount();
+            int count = Math.min(pageCount, maxPages);
+            JSArray images = new JSArray();
+            for (int i = 0; i < count; i++) {
+                String name = count == 1 ? base + ".png" : base + "-pagina-" + (i + 1) + ".png";
+                File out = new File(pdf.getParentFile(), name);
+                renderPage(renderer, i, out);
+                JSObject image = new JSObject();
+                image.put("uri", Uri.fromFile(out).toString());
+                image.put("name", name);
+                images.put(image);
+            }
+            JSObject result = new JSObject();
+            result.put("images", images);
+            result.put("pageCount", pageCount);
+            call.resolve(result);
+        } catch (IOException | SecurityException e) {
+            // SecurityException: PDF com senha.
+            call.reject("Não foi possível ler o PDF.", e);
+        } catch (OutOfMemoryError e) {
+            call.reject("PDF grande demais para converter em imagem.");
+        }
+    }
+
+    private static void renderPage(PdfRenderer renderer, int index, File out) throws IOException {
+        try (PdfRenderer.Page page = renderer.openPage(index)) {
+            float scale = Math.max(IMAGE_MIN_SCALE, IMAGE_TARGET_WIDTH / page.getWidth());
+            float pixels = page.getWidth() * page.getHeight() * scale * scale;
+            if (pixels > IMAGE_MAX_PIXELS) scale *= (float) Math.sqrt(IMAGE_MAX_PIXELS / pixels);
+
+            Bitmap bitmap = Bitmap.createBitmap(
+                Math.max(1, Math.round(page.getWidth() * scale)),
+                Math.max(1, Math.round(page.getHeight() * scale)),
+                Bitmap.Config.ARGB_8888
+            );
+            try {
+                // O PdfRenderer desenha sobre transparente: sem o branco, o WhatsApp mostra o texto sobre preto.
+                bitmap.eraseColor(Color.WHITE);
+                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
+                try (FileOutputStream stream = new FileOutputStream(out)) {
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
+                }
+            } finally {
+                bitmap.recycle();
+            }
         }
     }
 

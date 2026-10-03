@@ -1,4 +1,5 @@
 import Foundation
+import PDFKit
 import UIKit
 import WebKit
 import Capacitor
@@ -13,6 +14,7 @@ import Capacitor
 ///  3. Tela "Sem conexão" em falha de rede, downloads e novas janelas (EscaleWebViewProxy).
 ///  4. Impressão nativa (window.print não funciona no WKWebView).
 ///  5. Cor de fundo nativa.
+///  6. PDF → PNG, para "Compartilhar como imagem" (src/native/files.ts).
 @objc(EscaleNativePlugin)
 public class EscaleNativePlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "EscaleNativePlugin"
@@ -21,9 +23,17 @@ public class EscaleNativePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "print", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setBackgroundColor", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setSafeAreaMode", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "pdfToImages", returnType: CAPPluginReturnPromise),
     ]
 
     private static let errorPlaceholder = "__ESCALE_ERROR_JSON__"
+
+    /// Largura das imagens geradas de PDF: o cupom de 80 mm (~226 pt) sai legível no WhatsApp.
+    private static let imageTargetWidth: CGFloat = 1080
+    /// A4 e maiores: 2 px por ponto (~144 dpi).
+    private static let imageMinScale: CGFloat = 2
+    /// Teto por página: cupom muito longo reduz a escala em vez de estourar a memória.
+    private static let imageMaxPixels: CGFloat = 12_000_000
 
     private var erpOrigin = URL(string: "https://erp.escalemais.com")!
     private var allowedHosts: Set<String> = []
@@ -196,6 +206,75 @@ public class EscaleNativePlugin: CAPPlugin, CAPBridgedPlugin {
         case "image/png": return "png"
         case "image/jpeg": return "jpg"
         default: return nil
+        }
+    }
+
+    // MARK: - PDF → PNG
+
+    @objc func pdfToImages(_ call: CAPPluginCall) {
+        guard let path = call.getString("path"), !path.isEmpty else {
+            call.reject("Informe o caminho do PDF.")
+            return
+        }
+        let maxPages = max(1, call.getInt("maxPages") ?? 10)
+        let pdfURL = URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath()
+
+        // Só o que o app baixou (cache): a página não lê arquivos arbitrários do aparelho por aqui.
+        guard let caches = try? FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+                .resolvingSymlinksInPath(),
+              pdfURL.path.hasPrefix(caches.path + "/") else {
+            call.reject("O arquivo precisa estar no cache do app.")
+            return
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            guard let document = PDFDocument(url: pdfURL), !document.isLocked else {
+                call.reject("Não foi possível ler o PDF.")
+                return
+            }
+            let pageCount = document.pageCount
+            let count = min(pageCount, maxPages)
+            let base = pdfURL.deletingPathExtension().lastPathComponent
+            var images: [[String: String]] = []
+            for index in 0..<count {
+                let name = count == 1 ? "\(base).png" : "\(base)-pagina-\(index + 1).png"
+                let out = pdfURL.deletingLastPathComponent().appendingPathComponent(name)
+                guard let page = document.page(at: index), let data = Self.renderPNG(page) else {
+                    call.reject("Não foi possível converter a página \(index + 1).")
+                    return
+                }
+                do {
+                    try data.write(to: out, options: .atomic)
+                } catch {
+                    call.reject("Não foi possível gravar a imagem.", nil, error)
+                    return
+                }
+                images.append(["uri": out.absoluteString, "name": name])
+            }
+            call.resolve(["images": images, "pageCount": pageCount])
+        }
+    }
+
+    private static func renderPNG(_ page: PDFPage) -> Data? {
+        let bounds = page.bounds(for: .mediaBox)
+        guard bounds.width > 0, bounds.height > 0 else { return nil }
+        var scale = max(imageMinScale, imageTargetWidth / bounds.width)
+        let pixels = bounds.width * bounds.height * scale * scale
+        if pixels > imageMaxPixels { scale *= (imageMaxPixels / pixels).squareRoot() }
+        let size = CGSize(width: (bounds.width * scale).rounded(), height: (bounds.height * scale).rounded())
+
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1 // tamanho em pixels, não em pontos da tela
+        format.opaque = true
+        return UIGraphicsImageRenderer(size: size, format: format).pngData { context in
+            // Fundo branco: o PDF não pinta o papel, e o WhatsApp mostraria o texto sobre preto.
+            UIColor.white.setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+            let cg = context.cgContext
+            cg.translateBy(x: 0, y: size.height)
+            cg.scaleBy(x: scale, y: -scale) // PDF tem a origem embaixo
+            cg.translateBy(x: -bounds.minX, y: -bounds.minY)
+            page.draw(with: .mediaBox, to: cg)
         }
     }
 

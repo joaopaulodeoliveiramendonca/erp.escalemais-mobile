@@ -57,7 +57,7 @@ export interface EscaleAppApi {
   /** Retorno inclui `value` no topo para uso direto no PDV. */
   scanBarcode(input?: ScanInput): Promise<(BridgeResult<ScanData> & { value?: string })>;
 
-  /** Baixa (com a sessão) e oferece Visualizar/Compartilhar/Salvar. */
+  /** Baixa (com a sessão) e oferece Visualizar/Compartilhar/Salvar. `action: 'share-image'` manda um PDF direto como imagem. */
   download(url: string, options?: { filename?: string; action?: FileAction }): Promise<BridgeResult<{ name: string; mimeType: string; size: number }>>;
   /** Mesmo fluxo para um arquivo gerado no navegador (Blob/File). */
   openFile(file: Blob, options?: { filename?: string; action?: FileAction }): Promise<BridgeResult<{ name: string }>>;

@@ -25,6 +25,9 @@ import { EscaleNative } from './escaleNative';
  *
  *   Visualizar   → visualizador nativo (QuickLook no iOS, app de PDF no Android)
  *   Compartilhar → folha de compartilhamento (WhatsApp, e-mail, Drive…)
+ *   Compartilhar como imagem → só PDF: cada página vira um PNG (o nativo
+ *                  converte) e vai para a mesma folha — no WhatsApp chega
+ *                  como foto, não como documento
  *   Salvar       → Documentos/Escale Mais (Android) ou Arquivos › Escale Mais (iOS)
  *
  * Entradas:
@@ -43,10 +46,12 @@ export interface LocalFile {
   size: number;
 }
 
-export type FileAction = 'view' | 'share' | 'save' | 'ask';
+export type FileAction = 'view' | 'share' | 'share-image' | 'save' | 'ask';
 
 const CACHE_FOLDER = 'downloads';
 const SAVE_FOLDER = APP_NAME;
+/** Páginas convertidas no "Compartilhar como imagem" (o WhatsApp aceita até 30 por envio). */
+const MAX_IMAGE_PAGES = 10;
 
 function localPath(uri: string): string {
   return decodeURIComponent(uri.replace(/^file:\/\//, ''));
@@ -99,6 +104,35 @@ export async function shareFile(file: LocalFile, text?: string): Promise<void> {
   await Share.share({ title: file.name, text, files: [file.uri], dialogTitle: 'Compartilhar arquivo' });
 }
 
+function isPdf(file: LocalFile): boolean {
+  return file.mimeType === 'application/pdf' || /\.pdf$/i.test(file.name);
+}
+
+/** Converte as páginas do PDF em PNG e abre a folha de compartilhamento com as imagens. */
+export async function shareAsImages(file: LocalFile): Promise<void> {
+  const { images, pageCount } = await EscaleNative.pdfToImages({ path: localPath(file.uri), maxPages: MAX_IMAGE_PAGES });
+  if (images.length === 0) throw new Error('O PDF não tem páginas.');
+  if (pageCount > images.length) {
+    void Toast.show({ text: `Enviando as ${images.length} primeiras de ${pageCount} páginas.`, duration: 'long' });
+  }
+  await Share.share({ title: file.name, files: images.map((image) => image.uri), dialogTitle: 'Compartilhar imagem' });
+}
+
+async function shareImagesWithFeedback(file: LocalFile): Promise<void> {
+  try {
+    await shareAsImages(file);
+  } catch (err) {
+    if (isShareCancel(err)) return;
+    log.warn('pdf to image failed', err);
+    await Toast.show({ text: 'Não foi possível converter o PDF em imagem.', duration: 'long' });
+  }
+}
+
+/** Fechar a folha sem escolher um app rejeita a promessa do Share — não é erro. */
+function isShareCancel(err: unknown): boolean {
+  return /cancel/i.test(String((err as { message?: string } | null)?.message ?? err));
+}
+
 async function ensureStoragePermission(): Promise<void> {
   // Só Android ≤ 10 exige permissão para gravar em Documentos.
   if (!isAndroid()) return;
@@ -149,21 +183,27 @@ async function saveWithFeedback(file: LocalFile): Promise<void> {
   }
 }
 
-/** Mostra Visualizar / Compartilhar / Salvar para um arquivo local. */
+/** Mostra Visualizar / Compartilhar (/ como imagem, se PDF) / Salvar para um arquivo local. */
 export async function presentFile(file: LocalFile, action: FileAction = 'ask'): Promise<FileAction | 'cancel'> {
+  if (action === 'share-image' && !isPdf(file)) action = 'share'; // já é imagem, ou não tem como converter
+
   let chosen: FileAction | 'cancel' = action;
 
   if (action === 'ask') {
+    const actions: { action: FileAction; title: string }[] = [
+      { action: 'view', title: 'Visualizar' },
+      { action: 'share', title: 'Compartilhar' },
+      ...(isPdf(file) ? [{ action: 'share-image' as const, title: 'Compartilhar como imagem' }] : []),
+      { action: 'save', title: 'Salvar' },
+    ];
     const { index } = await ActionSheet.showActions({
       title: file.name,
       options: [
-        { title: 'Visualizar' },
-        { title: 'Compartilhar' },
-        { title: 'Salvar' },
+        ...actions.map(({ title }) => ({ title })),
         { title: 'Cancelar', style: ActionSheetButtonStyle.Cancel },
       ],
     });
-    chosen = (['view', 'share', 'save'] as const)[index] ?? 'cancel';
+    chosen = actions[index]?.action ?? 'cancel';
   }
 
   switch (chosen) {
@@ -172,6 +212,9 @@ export async function presentFile(file: LocalFile, action: FileAction = 'ask'): 
       break;
     case 'share':
       await shareFile(file);
+      break;
+    case 'share-image':
+      await shareImagesWithFeedback(file);
       break;
     case 'save':
       await saveWithFeedback(file);
@@ -214,8 +257,11 @@ async function cleanCacheOncePerLaunch(): Promise<void> {
 
 export function setupFiles(): void {
   // Android: a WebView detectou um download (GET). Baixamos pelo JS para usar a sessão.
+  // O `e.filename` (URLUtil.guessFileName) ignora o Content-Disposition `inline`
+  // dos PDFs do ERP e cai no fim da URL: /vendas/1/imprimir/pdf virava "pdf.pdf".
+  // Sem nome aqui, o downloadToCache lê o Content-Disposition da resposta.
   void EscaleNative.addListener('downloadRequested', (e) => {
-    void handleDownload(e.url, { filename: e.filename, mimeType: e.mimeType });
+    void handleDownload(e.url, { filename: filenameFromContentDisposition(e.contentDisposition) ?? undefined, mimeType: e.mimeType });
   });
 
   // iOS: o WKDownload já salvou o arquivo (inclui downloads via POST).

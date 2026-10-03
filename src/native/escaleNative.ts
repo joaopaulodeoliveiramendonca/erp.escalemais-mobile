@@ -7,7 +7,7 @@ import { registerPlugin, type PluginListenerHandle } from '@capacitor/core';
  *
  * Cuida do que só o nativo consegue fazer: injetar esta bridge, decidir a
  * navegação, mostrar a página de erro de rede, capturar downloads que a
- * WebView não sabe exibir e imprimir.
+ * WebView não sabe exibir, imprimir e converter PDF em imagem.
  */
 
 /** Android: a WebView pediu um download (Content-Disposition, PDF, blob:, …). O JS baixa com a sessão. */
@@ -30,7 +30,20 @@ export interface DownloadFailedEvent {
   error: string;
 }
 
+/** Uma página do PDF convertida em PNG, gravada no cache do app. */
+export interface PdfPageImage {
+  /** file:// no dispositivo. */
+  uri: string;
+  name: string;
+}
+
 export interface EscaleNativePlugin {
+  /**
+   * Converte as páginas de um PDF local em PNG (fundo branco), para enviar
+   * como imagem. Grava ao lado do PDF; `maxPages` limita a conversão.
+   */
+  pdfToImages(options: { path: string; maxPages?: number }): Promise<{ images: PdfPageImage[]; pageCount: number }>;
+
   /**
    * Abre o diálogo de impressão nativo (window.print() não funciona em WebView).
    * Sem `html`: imprime a WebView atual. Com `html`: imprime esse documento
