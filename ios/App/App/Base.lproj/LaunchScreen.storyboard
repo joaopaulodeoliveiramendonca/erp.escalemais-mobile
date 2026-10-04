@@ -12,11 +12,32 @@
         <scene sceneID="EHf-IW-A2E">
             <objects>
                 <viewController id="01J-lp-oVM" sceneMemberID="viewController">
-                    <imageView key="view" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="Splash" id="snD-IY-ifK">
+                    <view key="view" contentMode="scaleToFill" id="Lsv-Rt-001">
                         <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
-                        <autoresizingMask key="autoresizingMask"/>
-                        <color key="backgroundColor" systemColor="systemBackgroundColor"/>
-                    </imageView>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <imageView userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="Splash" translatesAutoresizingMaskIntoConstraints="NO" id="snD-IY-ifK">
+                                <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
+                            </imageView>
+                            <imageView userInteractionEnabled="NO" contentMode="scaleAspectFit" image="SplashBranding" translatesAutoresizingMaskIntoConstraints="NO" id="Lsv-Br-001">
+                                <rect key="frame" x="87.5" y="587" width="200" height="80"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="200" id="Lsv-Br-0w1"/>
+                                    <constraint firstAttribute="height" constant="80" id="Lsv-Br-0h1"/>
+                                </constraints>
+                            </imageView>
+                        </subviews>
+                        <viewLayoutGuide key="safeArea" id="Lsv-Sa-001"/>
+                        <color key="backgroundColor" red="0.94117647058823528" green="0.94117647058823528" blue="0.94117647058823528" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <constraints>
+                            <constraint firstItem="snD-IY-ifK" firstAttribute="top" secondItem="Lsv-Rt-001" secondAttribute="top" id="Lsv-Ct-001"/>
+                            <constraint firstItem="snD-IY-ifK" firstAttribute="bottom" secondItem="Lsv-Rt-001" secondAttribute="bottom" id="Lsv-Ct-002"/>
+                            <constraint firstItem="snD-IY-ifK" firstAttribute="leading" secondItem="Lsv-Rt-001" secondAttribute="leading" id="Lsv-Ct-003"/>
+                            <constraint firstItem="snD-IY-ifK" firstAttribute="trailing" secondItem="Lsv-Rt-001" secondAttribute="trailing" id="Lsv-Ct-004"/>
+                            <constraint firstItem="Lsv-Br-001" firstAttribute="centerX" secondItem="Lsv-Rt-001" secondAttribute="centerX" id="Lsv-Ct-005"/>
+                            <constraint firstItem="Lsv-Sa-001" firstAttribute="bottom" secondItem="Lsv-Br-001" secondAttribute="bottom" id="Lsv-Ct-006"/>
+                        </constraints>
+                    </view>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
             </objects>
@@ -25,8 +46,6 @@
     </scenes>
     <resources>
         <image name="Splash" width="1366" height="1366"/>
-        <systemColor name="systemBackgroundColor">
-            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-        </systemColor>
+        <image name="SplashBranding" width="200" height="80"/>
     </resources>
 </document>

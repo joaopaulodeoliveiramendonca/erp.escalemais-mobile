@@ -18,7 +18,8 @@
 
     <!--
       Splash nativa. Android < 12: imagem @drawable/splash.
-      Android 12+: o sistema desenha cor de fundo + ícone (não usa a imagem).
+      Android 12+: o sistema desenha cor de fundo + ícone (não usa a imagem);
+      o "from Escale Mais" do rodapé fica em values-v31/styles.xml.
       Some quando a bridge avisa que o ERP pintou (src/native/splash.ts).
     -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
