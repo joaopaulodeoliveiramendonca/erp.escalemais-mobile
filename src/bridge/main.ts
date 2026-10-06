@@ -13,6 +13,7 @@ import { setupSafeArea } from '../native/safeArea';
 import { polyfillNavigatorShare } from '../native/share';
 import { setupSplash } from '../native/splash';
 import { setupStatusBar } from '../native/statusBar';
+import { setupTabBar } from '../native/tabBar';
 import { isAndroid } from '../config/platform';
 import { log } from '../utils/logger';
 
@@ -47,6 +48,8 @@ export function start(): void {
   } else {
     // Android já respeita o viewport-fit das páginas (SystemBars do Capacitor).
     steps.unshift(['safeArea', setupSafeArea]);
+    // Só age no iPhone (o nativo avisa por window.__escaleNativeTabBar).
+    steps.push(['tabBar', setupTabBar]);
   }
 
   // Um módulo com problema não derruba os outros.

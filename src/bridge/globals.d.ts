@@ -8,6 +8,8 @@ declare global {
     isNativeApp?: boolean;
     /** Estado atual da conexão (atualizado em tempo real). */
     isOnline?: boolean;
+    /** Injetado pelo nativo antes da bridge: o iPhone desenha a tab bar (src/native/tabBar.ts). */
+    __escaleNativeTabBar?: boolean;
   }
 }
 

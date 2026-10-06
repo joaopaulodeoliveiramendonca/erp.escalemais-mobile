@@ -15,6 +15,7 @@ import Capacitor
 ///  4. Impressão nativa (window.print não funciona no WKWebView).
 ///  5. Cor de fundo nativa.
 ///  6. PDF → PNG, para "Compartilhar como imagem" (src/native/files.ts).
+///  7. Tab bar nativa do iPhone (AppRootViewController), alimentada por src/native/tabBar.ts.
 @objc(EscaleNativePlugin)
 public class EscaleNativePlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "EscaleNativePlugin"
@@ -24,6 +25,8 @@ public class EscaleNativePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "setBackgroundColor", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setSafeAreaMode", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "pdfToImages", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setTabBar", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setTabBarCovered", returnType: CAPPluginReturnPromise),
     ]
 
     private static let errorPlaceholder = "__ESCALE_ERROR_JSON__"
@@ -71,12 +74,14 @@ public class EscaleNativePlugin: CAPPlugin, CAPBridgedPlugin {
     /// Chamado pelo MainViewController DEPOIS de registerPluginInstance: o
     /// Capacitor roda load() antes de exportar a definição JS do plugin, e a
     /// bridge precisa encontrar `EscaleNative` já declarado ao rodar.
-    func installBridgeScript() {
+    func installBridgeScript(nativeTabBar: Bool) {
         let file = bridgeScriptName
-        guard let source = Self.readPublicFile(file) else {
+        guard var source = Self.readPublicFile(file) else {
             CAPLog.print("⚡️  EscaleNative: \(file) não encontrado. Rode `npm run build && npx cap sync`.")
             return
         }
+        // Antes da bridge rodar: ela esconde a barra do ERP já na primeira pintura.
+        if nativeTabBar { source = "window.__escaleNativeTabBar = true;\n" + source }
         // WKUserScript não filtra por origem: a condição garante que só o ERP recebe a bridge.
         let origin = Self.origin(of: erpOrigin)
         let guarded = "if (window.location.origin === '\(origin)') {\n\(source)\n}"
@@ -337,6 +342,7 @@ public class EscaleNativePlugin: CAPPlugin, CAPBridgedPlugin {
             self?.bridge?.viewController?.view.backgroundColor = color
             self?.webView?.backgroundColor = color
             self?.webView?.scrollView.backgroundColor = color
+            self?.rootController?.setPageIsDark(Self.isDark(color))
             call.resolve()
         }
     }
@@ -351,6 +357,44 @@ public class EscaleNativePlugin: CAPPlugin, CAPBridgedPlugin {
         let cover = call.getBool("cover") ?? true
         DispatchQueue.main.async { [weak self] in
             self?.webView?.scrollView.contentInsetAdjustmentBehavior = cover ? .never : .automatic
+            call.resolve()
+        }
+    }
+
+    // MARK: - Tab bar nativa
+
+    private var rootController: AppRootViewController? {
+        bridge?.viewController?.parent as? AppRootViewController
+    }
+
+    /// `items: [{ title, symbol }]`, `selected`: índice ou ausente (nenhum ativo),
+    /// `tint`: #RRGGBB do item ativo.
+    /// Lista vazia esconde a barra. Devolve a altura que a página deve reservar.
+    @objc func setTabBar(_ call: CAPPluginCall) {
+        let items = (call.getArray("items", JSObject.self) ?? []).compactMap { raw -> AppRootViewController.Item? in
+            guard let title = raw["title"] as? String, let symbol = raw["symbol"] as? String else { return nil }
+            return AppRootViewController.Item(title: title, symbol: symbol)
+        }
+        let selected = call.getInt("selected")
+        let tint = Self.color(fromHex: call.getString("tint") ?? "")
+        DispatchQueue.main.async { [weak self] in
+            guard let root = self?.rootController else {
+                call.resolve(["visible": false, "height": 0])
+                return
+            }
+            if root.onSelect == nil {
+                root.onSelect = { index in self?.notifyListeners("tabBarSelect", data: ["index": index]) }
+                root.onHeightChange = { height in self?.notifyListeners("tabBarHeight", data: ["height": height]) }
+            }
+            root.setItems(items, selected: selected, tint: tint)
+            call.resolve(["visible": !items.isEmpty, "height": items.isEmpty ? 0 : root.reservedHeight])
+        }
+    }
+
+    @objc func setTabBarCovered(_ call: CAPPluginCall) {
+        let covered = call.getBool("covered") ?? false
+        DispatchQueue.main.async { [weak self] in
+            self?.rootController?.setCovered(covered)
             call.resolve()
         }
     }
@@ -370,7 +414,14 @@ public class EscaleNativePlugin: CAPPlugin, CAPBridgedPlugin {
         return origin
     }
 
-    private static func color(fromHex hex: String) -> UIColor? {
+    /// Luminância relativa abaixo do meio: fundo escuro.
+    private static func isDark(_ color: UIColor) -> Bool {
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        return 0.2126 * red + 0.7152 * green + 0.0722 * blue < 0.5
+    }
+
+        private static func color(fromHex hex: String) -> UIColor? {
         var value = hex.trimmingCharacters(in: .whitespacesAndNewlines)
         if value.hasPrefix("#") { value.removeFirst() }
         guard value.count == 6, let rgb = UInt32(value, radix: 16) else { return nil }

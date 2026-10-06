@@ -37,6 +37,12 @@ export interface PdfPageImage {
   name: string;
 }
 
+/** Item da tab bar nativa do iPhone. `symbol` é um SF Symbol. */
+export interface NativeTabItem {
+  title: string;
+  symbol: string;
+}
+
 export interface EscaleNativePlugin {
   /**
    * Converte as páginas de um PDF local em PNG (fundo branco), para enviar
@@ -60,9 +66,21 @@ export interface EscaleNativePlugin {
    */
   setSafeAreaMode(options: { cover: boolean }): Promise<void>;
 
+  /**
+   * iPhone: tab bar nativa (src/native/tabBar.ts). `items` vazio esconde a barra;
+   * `selected` ausente deixa nenhum item marcado; `tint` (#RRGGBB) pinta o ativo. Devolve a altura a reservar
+   * embaixo do conteúdo (barra + indicador de home).
+   */
+  setTabBar(options: { items: NativeTabItem[]; selected?: number; tint?: string }): Promise<{ visible: boolean; height: number }>;
+
+  /** iPhone: some com a tab bar enquanto um modal do ERP ocupa o rodapé. */
+  setTabBarCovered(options: { covered: boolean }): Promise<void>;
+
   addListener(event: 'downloadRequested', fn: (e: DownloadRequestedEvent) => void): Promise<PluginListenerHandle>;
   addListener(event: 'downloadCompleted', fn: (e: DownloadCompletedEvent) => void): Promise<PluginListenerHandle>;
   addListener(event: 'downloadFailed', fn: (e: DownloadFailedEvent) => void): Promise<PluginListenerHandle>;
+  addListener(event: 'tabBarSelect', fn: (e: { index: number }) => void): Promise<PluginListenerHandle>;
+  addListener(event: 'tabBarHeight', fn: (e: { height: number }) => void): Promise<PluginListenerHandle>;
 }
 
 export const EscaleNative = registerPlugin<EscaleNativePlugin>('EscaleNative');
