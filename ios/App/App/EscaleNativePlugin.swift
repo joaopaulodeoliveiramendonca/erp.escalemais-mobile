@@ -340,6 +340,8 @@ public class EscaleNativePlugin: CAPPlugin, CAPBridgedPlugin {
         }
         DispatchQueue.main.async { [weak self] in
             self?.bridge?.viewController?.view.backgroundColor = color
+            // Faixa da barra de status no iPad (a WebView começa abaixo dela).
+            self?.rootController?.view.backgroundColor = color
             self?.webView?.backgroundColor = color
             self?.webView?.scrollView.backgroundColor = color
             self?.rootController?.setPageIsDark(Self.isDark(color))

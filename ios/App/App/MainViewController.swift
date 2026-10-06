@@ -21,7 +21,8 @@ class MainViewController: CAPBridgeViewController {
 /// permissão e por módulo, e o app só desenha.
 ///
 /// Fica num controller próprio, e não como subview da WebView, para a barra não
-/// subir junto quando o teclado redimensiona a WebView.
+/// subir junto quando o teclado redimensiona a WebView. No iPad, é ele também
+/// quem tira a WebView de baixo da barra de status.
 final class AppRootViewController: UIViewController, UITabBarDelegate {
 
     /// Só no iPhone: no iPad o ERP mostra a sidebar de desktop e não tem barra inferior.
@@ -32,6 +33,8 @@ final class AppRootViewController: UIViewController, UITabBarDelegate {
     private var lastReportedHeight: CGFloat = -1
     /// Tema da tela do ERP (pela cor de fundo que a bridge manda); nil até a primeira página.
     private var pageIsDark: Bool?
+    /// iPad: tamanho e topo seguro da última vez que a WebView foi posicionada.
+    private var lastPadLayout: (size: CGSize, top: CGFloat)?
 
     /// Toque num item: o índice vai para a bridge, que aciona o link do ERP.
     var onSelect: ((Int) -> Void)?
@@ -61,11 +64,29 @@ final class AppRootViewController: UIViewController, UITabBarDelegate {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        layoutWebViewBelowStatusBar()
         let height = reservedHeight
         if height != lastReportedHeight {
             lastReportedHeight = height
             onHeightChange?(height)
         }
+    }
+
+    /// iPad: o ERP abre no layout de computador (sidebar fixa), que não conhece a
+    /// área segura — o relógio ficava sobre a sidebar e o conteúdo rolava por
+    /// trás dele. Aqui a WebView começa abaixo da barra de status, como no Safari,
+    /// e a faixa de cima fica com a cor da página (setBackgroundColor).
+    ///
+    /// Só reposiciona quando a tela ou o topo seguro mudam (rotação, Stage
+    /// Manager): com o teclado aberto, o plugin Keyboard encolhe a altura da
+    /// WebView pelo próprio frame, e um ajuste a cada layout desfaria isso.
+    private func layoutWebViewBelowStatusBar() {
+        guard UIDevice.current.userInterfaceIdiom == .pad else { return }
+        let size = view.bounds.size
+        let top = view.safeAreaInsets.top
+        if let last = lastPadLayout, last.size == size, last.top == top { return }
+        lastPadLayout = (size, top)
+        bridgeController.view.frame = CGRect(x: 0, y: top, width: size.width, height: size.height - top)
     }
 
     /// Do topo da barra até o fim da tela.
