@@ -98,10 +98,13 @@ final class AppRootViewController: UIViewController, UITabBarDelegate {
 
     // MARK: - Itens
 
-    struct Item {
+    struct Item: Equatable {
         let title: String
         let symbol: String
     }
+
+    /// Itens atuais, para saber se a página mandou algo novo.
+    private var currentItems: [Item] = []
 
     /// Lista vazia esconde a barra (login, telas sem navegação).
     /// `tint`: cor do item ativo — a de destaque da empresa, a mesma da barra do ERP.
@@ -109,18 +112,9 @@ final class AppRootViewController: UIViewController, UITabBarDelegate {
         guard Self.usesNativeTabBar else { return }
         let tintChanged = tint != nil && tint != tabBar.tintColor
         if let tint { tabBar.tintColor = tint }
-        let current = tabBar.items ?? []
-        let same = current.count == items.count && zip(current, items).allSatisfy { item, new in
-            item.title == new.title && item.accessibilityIdentifier == new.symbol
-        }
-        if !same {
-            tabBar.setItems(items.enumerated().map { index, item in
-                let barItem = UITabBarItem(title: item.title, image: Self.image(for: item.symbol), tag: index)
-                barItem.accessibilityIdentifier = item.symbol
-                return barItem
-            }, animated: false)
-        }
-        if !same || tintChanged { styleItems() }
+        let same = currentItems == items
+        currentItems = items
+        if !same || tintChanged { rebuildItems() }
         select(selected)
         tabBar.isHidden = items.isEmpty
     }
@@ -128,21 +122,34 @@ final class AppRootViewController: UIViewController, UITabBarDelegate {
     /// Inativos em cinza, como na barra do ERP: o padrão (cor do texto, quase
     /// preto) pesava ao lado do item ativo. O vidro do iOS 26 ignora
     /// `unselectedItemTintColor` e `UITabBarAppearance`, então o cinza vai na
-    /// própria imagem (original) e no título. O selecionado continua em
-    /// template, na cor de destaque (`tintColor`).
-    private func styleItems() {
+    /// própria imagem (original). O selecionado continua em template, na cor de
+    /// destaque (`tintColor`).
+    ///
+    /// Cada item nasce já com imagem e atributos, e mudar o estilo cria itens
+    /// novos: no vidro do iOS 26, trocar `image` ou `setTitleTextAttributes` de
+    /// um item já entregue à barra apaga o rótulo dos inativos — e se isso
+    /// acontecia ou não dependia de o tema da página chegar antes ou depois dos itens.
+    private func rebuildItems() {
         // Pelo tema da página, guardado: o traitCollection da barra só muda no próximo
         // layout, e com o iPhone no escuro o cinza saía branco sobre o vidro claro.
         let dark = pageIsDark ?? (traitCollection.userInterfaceStyle == .dark)
         let gray = UIColor(white: dark ? 1 : 0, alpha: 0.45)
         let font = UIFont.systemFont(ofSize: 10, weight: .medium)
-        for item in tabBar.items ?? [] {
-            guard let symbol = item.accessibilityIdentifier, let base = Self.image(for: symbol) else { continue }
-            item.image = base.withTintColor(gray, renderingMode: .alwaysOriginal)
-            item.selectedImage = base.withRenderingMode(.alwaysTemplate)
-            item.setTitleTextAttributes([.foregroundColor: gray, .font: font], for: .normal)
-            item.setTitleTextAttributes([.foregroundColor: tabBar.tintColor ?? .tintColor, .font: font], for: .selected)
-        }
+        let tint = tabBar.tintColor ?? .tintColor
+        let selected = tabBar.selectedItem?.tag
+        tabBar.setItems(currentItems.enumerated().map { index, item in
+            let base = Self.image(for: item.symbol)
+            let barItem = UITabBarItem(
+                title: item.title,
+                image: base?.withTintColor(gray, renderingMode: .alwaysOriginal),
+                selectedImage: base?.withRenderingMode(.alwaysTemplate)
+            )
+            barItem.tag = index
+            barItem.setTitleTextAttributes([.foregroundColor: gray, .font: font], for: .normal)
+            barItem.setTitleTextAttributes([.foregroundColor: tint, .font: font], for: .selected)
+            return barItem
+        }, animated: false)
+        select(selected)
     }
 
     /// Claro/escuro da barra pelo tema do ERP, e não pelo do iPhone: o ERP tem
@@ -152,7 +159,7 @@ final class AppRootViewController: UIViewController, UITabBarDelegate {
         guard pageIsDark != dark else { return }
         pageIsDark = dark
         tabBar.overrideUserInterfaceStyle = dark ? .dark : .light
-        styleItems()
+        if !currentItems.isEmpty { rebuildItems() }
     }
 
     func select(_ index: Int?) {

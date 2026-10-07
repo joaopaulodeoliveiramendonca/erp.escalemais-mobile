@@ -52,7 +52,14 @@ const ICON_BY_LABEL: Record<string, string> = {
 let elements: HTMLElement[] = [];
 let lastSent = '';
 let height = 0;
-let covered = false;
+/**
+ * O que o nativo sabe, e não o que esta página acha: a barra continua escondida
+ * de uma página para a outra. Navegar com um modal ou toast no rodapé (um form
+ * no modal que salva e redireciona) deixava a nativa invisível na página nova,
+ * que começava em `false` e nunca mandava reaparecer. `undefined` = ainda não
+ * avisou nada, então a primeira verificação sempre vai.
+ */
+let covered: boolean | undefined;
 
 /** Cor do texto do elemento em #RRGGBB (a do item ativo vem da cor de destaque da empresa). */
 function hexColor(el: HTMLElement): string | undefined {
@@ -163,6 +170,7 @@ export function setupTabBar(): void {
 
   onDomReady(() => {
     sync();
+    scheduleCoverCheck();
     // "Mais" abre e fecha a folha sem trocar de página.
     window.addEventListener('erp-sidebar-state', () => window.setTimeout(sync, 0));
 
@@ -180,6 +188,8 @@ export function setupTabBar(): void {
   window.addEventListener('pageshow', (event) => {
     if (!event.persisted) return;
     lastSent = '';
+    covered = undefined;
     sync();
+    scheduleCoverCheck();
   });
 }
