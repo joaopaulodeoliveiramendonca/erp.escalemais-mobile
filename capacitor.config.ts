@@ -52,6 +52,10 @@ const config: CapacitorConfig = {
     // Sem "peek" de links ao pressionar e segurar (não faz sentido num ERP).
     allowsLinkPreview: false,
     scrollEnabled: true,
+    // Liga o service worker do ERP no WKWebView (modo offline). Exige a lista
+    // WKAppBoundDomains no Info.plist. Navegar fora dela fica bloqueado, o que
+    // não muda nada aqui: só o ERP abre dentro do app.
+    limitsNavigationsToAppBoundDomains: true,
   },
 
   plugins: {

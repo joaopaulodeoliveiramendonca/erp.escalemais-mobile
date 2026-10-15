@@ -41,6 +41,19 @@
 	</array>
 
 	<!-- Só HTTPS padrão (sem exceções de ATS) → criptografia isenta de documentação de exportação. -->
+	<!--
+	  App-Bound Domains: sem esta lista o WKWebView não liga service worker, e
+	  sem service worker o ERP não abre offline no iPhone/iPad. Fica igual a
+	  ALLOWED_HOSTS (src/config/urls.ts) + localhost, que o Capacitor exige.
+	  Vai junto com ios.limitsNavigationsToAppBoundDomains no capacitor.config.ts.
+	  Máximo de 10 domínios.
+	-->
+	<key>WKAppBoundDomains</key>
+	<array>
+		<string>erp.escalemais.com</string>
+		<string>localhost</string>
+	</array>
+
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 

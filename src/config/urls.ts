@@ -26,6 +26,9 @@ export const START_URL = `${ERP_ORIGIN}${START_PATH}`;
  * Adicione somente quando necessário e somente domínios controlados pela
  * Escale Mais. Páginas nesses domínios que não sejam `ERP_ORIGIN` NÃO recebem
  * `window.EscaleApp` (a bridge é injetada apenas na origem do ERP).
+ *
+ * No iOS, todo domínio daqui também precisa entrar em `WKAppBoundDomains`
+ * (ios/App/App/Info.plist). Senão a navegação para ele é bloqueada.
  */
 export const ALLOWED_HOSTS: readonly string[] = ['erp.escalemais.com'];
 
